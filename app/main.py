@@ -1,8 +1,9 @@
 from typing import Union
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from app.bigram_model import BigramModel
 from app.embeddings import calculate_embedding
+from app.classifier import predict_image
 
 app = FastAPI()
 
@@ -43,3 +44,15 @@ def get_embedding(request: EmbeddingRequest):
         "dimensions": len(vector),
         "embedding": vector.tolist(),
     }
+
+@app.post("/classify")
+async def classify_image(file: UploadFile = File(...)):
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Please upload an image file.")
+    image_bytes = await file.read()
+    try:
+        result = predict_image(image_bytes)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read the image.")
+
+    return {"filename": file.filename, **result}
