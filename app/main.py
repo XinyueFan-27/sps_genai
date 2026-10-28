@@ -1,9 +1,10 @@
 from typing import Union
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, UploadFile, File, HTTPException, Response
+from pydantic import BaseModel, Field
 from app.bigram_model import BigramModel
 from app.embeddings import calculate_embedding
 from app.classifier import predict_image
+from app.gan_model import generate_digits_png
 
 app = FastAPI()
 
@@ -25,6 +26,9 @@ class TextGenerationRequest(BaseModel):
 
 class EmbeddingRequest(BaseModel):
     word: str
+
+class DigitGenerationRequest(BaseModel):
+    num_images: int = Field(16, ge=1, le=64)
 
 @app.get("/")
 def read_root():
@@ -56,3 +60,9 @@ async def classify_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Could not read the image.")
 
     return {"filename": file.filename, **result}
+
+
+@app.post("/generate_digits", response_class=Response)
+def generate_digits(request: DigitGenerationRequest):
+    png_bytes = generate_digits_png(request.num_images)
+    return Response(content=png_bytes, media_type="image/png")

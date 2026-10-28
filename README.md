@@ -4,6 +4,7 @@ A FastAPI project that serves several generative AI / deep learning models:
 - Bigram text generator
 - Word embeddings (spaCy)
 - CNN image classifier trained on CIFAR-10 (Assignment 2)
+- GAN hand-written digit generator trained on MNIST (Assignment 3)
 
 ## Setup
 ```bash
@@ -27,6 +28,12 @@ Interactive docs: http://127.0.0.1:8000/docs
 ```bash
   curl -X POST -F "file=@cat.jpg" http://127.0.0.1:8000/classify
 ```
+- `POST /generate_digits` — JSON body `{"num_images": 16}` (1–64). Returns a PNG grid of
+  GAN-generated hand-written digits.
+```bash
+  curl -X POST -H "Content-Type: application/json" -d '{"num_images": 16}' \
+       http://127.0.0.1:8000/generate_digits -o digits.png
+```
 
 ## CNN Classifier (Assignment 2)
 
@@ -46,6 +53,25 @@ To retrain:
 uv run python train_cnn.py
 ```
 
+## GAN Digit Generator (Assignment 3)
+
+### Architecture (`app/gan_model.py`)
+**Generator:** noise (B, 100) → FC → 7×7×128 → reshape
+→ ConvTranspose(128→64, 4×4, stride 2, pad 1) → BatchNorm → ReLU (14×14)
+→ ConvTranspose(64→1, 4×4, stride 2, pad 1) → Tanh (1×28×28)
+
+**Discriminator:** (1, 28, 28) → Conv(1→64, 4×4, stride 2, pad 1) → LeakyReLU(0.2) (14×14)
+→ Conv(64→128, 4×4, stride 2, pad 1) → BatchNorm → LeakyReLU(0.2) (7×7)
+→ Flatten → Linear(6272→1) → Sigmoid (real/fake probability)
+
+### Training (`train_gan.py`)
+MNIST pixels are normalized to [-1, 1] to match the Tanh output. Trained for 10 epochs
+with BCE loss and Adam (lr = 0.0002, betas = (0.5, 0.999)), batch size 128.
+The trained generator weights are included at `models/gan_generator.pth`. To retrain:
+```bash
+uv run python train_gan.py
+```
+
 ### Project structure
 ```
 app/
@@ -54,7 +80,10 @@ app/
   embeddings.py    # spaCy word embeddings
   cnn_model.py     # CNN architecture definition
   classifier.py    # loads trained weights and runs prediction
+  gan_model.py     # GAN generator/discriminator + digit sampling
 models/
   cnn_cifar10.pth  # trained CNN weights
-train_cnn.py       # training script
+  gan_generator.pth # trained GAN generator weights
+train_cnn.py       # CNN training script
+train_gan.py       # GAN training script
 ```
