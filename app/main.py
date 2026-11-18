@@ -5,6 +5,8 @@ from app.bigram_model import BigramModel
 from app.embeddings import calculate_embedding
 from app.classifier import predict_image
 from app.gan_model import generate_digits_png
+from app.diffusion_model import generate_diffusion_png
+from app.energy_model import generate_ebm_png
 
 app = FastAPI()
 
@@ -29,6 +31,14 @@ class EmbeddingRequest(BaseModel):
 
 class DigitGenerationRequest(BaseModel):
     num_images: int = Field(16, ge=1, le=64)
+
+class DiffusionRequest(BaseModel):
+    num_images: int = Field(16, ge=1, le=64)
+    num_steps: int = Field(50, ge=1, le=1000)  # DDIM sampling steps
+
+class EBMRequest(BaseModel):
+    num_images: int = Field(16, ge=1, le=64)
+    steps: int = Field(256, ge=1, le=2000)      # Langevin steps
 
 @app.get("/")
 def read_root():
@@ -65,4 +75,22 @@ async def classify_image(file: UploadFile = File(...)):
 @app.post("/generate_digits", response_class=Response)
 def generate_digits(request: DigitGenerationRequest):
     png_bytes = generate_digits_png(request.num_images)
+    return Response(content=png_bytes, media_type="image/png")
+
+
+@app.post("/generate_diffusion", response_class=Response)
+def generate_diffusion(request: DiffusionRequest):
+    try:
+        png_bytes = generate_diffusion_png(request.num_images, request.num_steps)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    return Response(content=png_bytes, media_type="image/png")
+
+
+@app.post("/generate_ebm", response_class=Response)
+def generate_ebm(request: EBMRequest):
+    try:
+        png_bytes = generate_ebm_png(request.num_images, request.steps)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     return Response(content=png_bytes, media_type="image/png")
