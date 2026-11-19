@@ -106,6 +106,14 @@ CIFAR-10 (32×32, random horizontal flip), pixels scaled to [-1, 1]. Adam (lr = 
 uv run python train_diffusion.py
 ```
 
+### Results
+Trained on Apple Silicon (MPS), about 1 min 40 s per epoch (about 50 min in total).
+The training loss (noise-prediction MSE) dropped to **0.0326** after 30 epochs and was nearly flat after epoch 20.
+Samples (50 DDIM steps) show natural backgrounds (sky, grass, ground) and recognizable rough shapes
+(cars, animals, planes); fine details are blurry, as expected for a 3.9M-parameter model trained for 30 epochs.
+
+![Diffusion samples](samples/diffusion_sample.png)
+
 ## Energy-Based Model (Assignment 4)
 
 ### Architecture (`app/energy_model.py`)
@@ -128,6 +136,26 @@ uv run python train_ebm.py
 ```
 At inference time the API starts from uniform noise and runs `steps` Langevin steps (default 256).
 
+### Results
+Trained on Apple Silicon (MPS), about 1 min per epoch (about 10 min in total). Training was stable:
+the contrastive-divergence loss stayed around 0 (final 0.0004) and the regularization loss was 0.0001.
+
+Average energies after training (lower = more realistic according to the model):
+
+| Input | Mean energy |
+|---|---|
+| CIFAR-10 test images | 0.0000 |
+| Uniform noise | 3.5816 |
+| Langevin samples, 256 / 1000 / 2000 steps | −0.0027 / −0.0325 / −0.0407 |
+
+The model clearly separates real images from noise, and Langevin sampling reaches energies as low as real images.
+However, the samples only match CIFAR-10's color and local texture statistics and show no object-level structure.
+The small 4-layer energy network has learned local statistics but not global structure, so these textures already
+look "real" to it; running more Langevin steps lowers the energy further but does not add structure.
+Stronger CIFAR-10 EBMs use much deeper networks (e.g., ResNets with spectral normalization) and far longer training.
+
+![EBM samples](samples/ebm_sample.png)
+
 ### Project structure
 ```
 app/
@@ -149,4 +177,5 @@ train_cnn.py       # CNN training script
 train_gan.py       # GAN training script
 train_diffusion.py # diffusion model training script
 train_ebm.py       # energy model training script
+samples/           # example outputs of the diffusion model and the EBM
 ```
